@@ -6,6 +6,6 @@
       "@workspace/ui/*": ["./src/*"]
     }
   },
-  "include": ["."],
+  "include": [".", "../../apps/admin/components/nav-link.tsx"],
   "exclude": ["node_modules", "dist"]
 }
