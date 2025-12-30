@@ -1,0 +1,6 @@
+{
+  "extends": "@workspace/typescript-config/nextjs.json",
+  "compilerOptions": {},
+  "include": [".", "convex/lib/gemini_config.ts"],
+  "exclude": ["node_modules", "dist"]
+}

@@ -14,9 +14,20 @@ const isPublicRoute = createRouteMatcher([
 export default clerkMiddleware(async (auth, req: NextRequest) => {
   const pathname = req.nextUrl.pathname;
 
+  if (pathname === '/') return handleRoot(req);
+
   const segments = pathname.split('/').filter(Boolean);
 
+  const autoPrefix = handleAutoPrefix(req, segments);
+  if (autoPrefix) return autoPrefix;
+
+  if (segments.length < 2) return handleRoot(req);
+
   const [country, lang] = segments;
+
+  if (!isValidCountry(country) || !isValidLanguage(lang)) {
+    return handleRoot(req);
+  }
 
   if (isPublicRoute(req)) {
     return NextResponse.next();
@@ -38,17 +49,6 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
   }
   if (role === 'admin' && !authorized(role, country as Country, userAccessCountry)) {
     return NextResponse.redirect(new URL(`/${country}/${lang}/unauthorized`, req.url));
-  }
-
-  if (pathname === '/') return handleRoot(req);
-
-  const autoPrefix = handleAutoPrefix(req, segments);
-  if (autoPrefix) return autoPrefix;
-
-  if (segments.length < 2) return handleRoot(req);
-
-  if (!isValidCountry(country) || !isValidLanguage(lang)) {
-    return handleRoot(req);
   }
 
   const existing = req.cookies.get('admin.next.url')?.value;

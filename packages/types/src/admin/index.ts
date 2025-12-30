@@ -1,6 +1,6 @@
 import { Country } from '../common';
 
-export const autoAdminPrefixSection = ['country'];
+export const autoAdminPrefixSection = ['country', 'banner-image', 'home-banner-image'] as const;
 
 export const SuperAdmin = 'superAdmin';
 export const Admin = 'admin';

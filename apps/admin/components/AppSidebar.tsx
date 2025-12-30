@@ -2,8 +2,6 @@
 import React from 'react';
 import {
   Home,
-  ShoppingBag,
-  ShoppingCart,
   Package,
   Heart,
   User,
@@ -13,6 +11,8 @@ import {
   ChevronUp,
   Projector,
   Plus,
+  PanelsTopLeft,
+  Image as ImageIcon,
 } from 'lucide-react';
 import {
   Sidebar,
@@ -49,6 +49,8 @@ import Image from 'next/image';
 import { useClerkDetails } from '@/hooks/use-clerk-details';
 import { Typography } from '@workspace/ui/components/typography';
 import { setLocaleCookies } from '@/app/actions/set-locale-cookies';
+import { RoleSkeleton } from './skeletons/RoleSkeleton';
+import ListSkeleton from './skeletons/ListSkeleton';
 
 export const navLinks = [
   {
@@ -56,20 +58,15 @@ export const navLinks = [
     url: '/',
     icon: Home,
   },
-  // {
-  //   title: 'Details',
-  //   url: '/details',
-  //   icon: Earth,
-  // },
   {
-    title: 'Shop',
-    url: '/shop',
-    icon: ShoppingBag,
+    title: 'Banner Image',
+    url: '/banner-image',
+    icon: ImageIcon,
   },
   {
-    title: 'Cart',
-    url: '/cart',
-    icon: ShoppingCart,
+    title: 'Home Banner Image',
+    url: '/home-banner-image',
+    icon: PanelsTopLeft,
   },
   {
     title: 'Orders',
@@ -120,7 +117,11 @@ const AppSidebar = () => {
                   alt='Trendslane'
                   className='dark:invert'
                 />
-                <p className='text-xs text-muted-foreground capitalize'>{role}</p>
+                {role ? (
+                  <p className='text-xs text-muted-foreground capitalize'>{role}</p>
+                ) : (
+                  <RoleSkeleton />
+                )}
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -182,21 +183,27 @@ const AppSidebar = () => {
             <CollapsibleContent>
               <SidebarGroupContent>
                 <SidebarMenu>
-                  {userCountry?.map((country) => (
-                    <SidebarMenuButton key={country} asChild>
-                      <SidebarMenuItem className='w-full'>
-                        <Link
-                          href={'#'}
-                          className='w-full'
-                          onClick={async () => {
-                            await setLocaleCookies(country, 'en');
-                          }}
-                        >
-                          <Typography>{country}</Typography>
-                        </Link>
-                      </SidebarMenuItem>
-                    </SidebarMenuButton>
-                  ))}
+                  {userCountry ? (
+                    <>
+                      {userCountry?.map((country) => (
+                        <SidebarMenuButton key={country} asChild>
+                          <SidebarMenuItem className='w-full'>
+                            <Link
+                              href={'#'}
+                              className='w-full'
+                              onClick={async () => {
+                                await setLocaleCookies(country, 'en');
+                              }}
+                            >
+                              <Typography>{country}</Typography>
+                            </Link>
+                          </SidebarMenuItem>
+                        </SidebarMenuButton>
+                      ))}
+                    </>
+                  ) : (
+                    <ListSkeleton />
+                  )}
                 </SidebarMenu>
               </SidebarGroupContent>
             </CollapsibleContent>
