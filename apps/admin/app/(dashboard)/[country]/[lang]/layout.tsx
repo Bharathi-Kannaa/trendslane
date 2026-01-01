@@ -1,5 +1,6 @@
 import AppSidebar from '@/components/AppSidebar';
 import Navbar from '@/components/Navbar';
+import { ConvexClientProvider } from '@/components/providers/ConvexProvider';
 import { SidebarProvider } from '@workspace/ui/components/sidebar';
 import { Toaster } from '@workspace/ui/components/sonner';
 import { cookies } from 'next/headers';
@@ -13,14 +14,16 @@ export default async function RootLayout({
   const defaultOpen = cookieStore.get('sidebar_state')?.value === 'true';
   return (
     <div className='flex'>
-      <SidebarProvider defaultOpen={defaultOpen}>
-        <AppSidebar />
-        <main className='w-full'>
-          <Navbar />
-          <div className='px-4'>{children}</div>
-        </main>
-      </SidebarProvider>
-      <Toaster position='bottom-left' duration={4000} />
+      <ConvexClientProvider>
+        <SidebarProvider defaultOpen={defaultOpen}>
+          <AppSidebar />
+          <main className='w-full'>
+            <Navbar />
+            <div className='px-4'>{children}</div>
+          </main>
+        </SidebarProvider>
+      </ConvexClientProvider>
+      <Toaster position='bottom-right' duration={4000} />
     </div>
   );
 }

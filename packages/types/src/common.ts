@@ -21,3 +21,19 @@ export function getFullCountryName(country?: Country): string {
 
   return COUNTRY_NAME_MAP[country] ?? country;
 }
+
+export const mapLanguageToCountry = (country: Country): Language => {
+  console.log(country, 'Mapping country to lang');
+  if (!country) return 'en';
+
+  switch (country) {
+    case 'in':
+      return 'en';
+    case 'fr':
+      return 'fr';
+    case 'ae':
+      return 'ar';
+    default:
+      return 'en';
+  }
+};

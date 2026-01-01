@@ -17,6 +17,9 @@ const nextConfig: NextConfig = {
         hostname: 'shop.mango.com',
       },
       {
+        hostname: 'shadcnuikit.com',
+      },
+      {
         hostname: 'images.pexels.com',
       },
       {

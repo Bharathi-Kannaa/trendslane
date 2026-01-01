@@ -14,8 +14,8 @@ import { useAuth } from '@clerk/nextjs';
 const Unauthorized = () => {
   const { signOut } = useAuth();
   return (
-    <Empty className='from-muted/50 to-background h-screen bg-gradient-to-b from-30%'>
-      <EmptyHeader>
+    <Empty className='from-muted/50 to-background h-screen bg-linear-to-b from-30%'>
+      <EmptyHeader className='relative'>
         <EmptyMedia variant='icon'>403</EmptyMedia>
         <EmptyTitle>You don&apos;t have access</EmptyTitle>
         <EmptyDescription>

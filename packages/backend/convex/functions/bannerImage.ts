@@ -14,17 +14,36 @@ export const createBannerImage = mutation({
   },
   handler: async (ctx, args) => {
     const now = Date.now();
+
     const existing = await ctx.db
       .query('bannerImages')
       .withIndex('by_audience', (q) => q.eq('audience', args.audience))
       .collect();
 
-    if (
-      existing.some((banner) => banner.country.some((country) => args.country.includes(country)))
-    ) {
-      throw new Error('Banner image for the specified country and audience already exists.');
+    // 1) Find conflicting countries
+    const conflictingCountries = new Set<string>();
+
+    for (const banner of existing) {
+      for (const country of banner.country) {
+        if (args.country.includes(country as Country)) {
+          conflictingCountries.add(country);
+        }
+      }
     }
 
+    // 2) Filter out conflicting countries from the requested countries
+    const allowedCountries = args.country.filter((country) => !conflictingCountries.has(country));
+
+    // 3) If no allowed countries remain, skip creation
+    if (allowedCountries.length === 0) {
+      return {
+        created: false,
+        message: `Banner already exists for audience "${args.audience}" in selected countries`,
+        skippedCountries: Array.from(conflictingCountries),
+      };
+    }
+
+    // 4) Create banner for allowed countries only
     const bannerId = await ctx.db.insert('bannerImages', {
       ...args,
       altText: args.title,
@@ -37,15 +56,17 @@ export const createBannerImage = mutation({
       },
     });
 
-    if (!bannerId) {
-      throw new Error('Failed to create banner image.');
-    }
+    // await ctx.scheduler.runAfter(0, internal.jobs.translateBannerImage.translateBannerImage, {
+    //   bannerId,
+    // });
 
-    await ctx.scheduler.runAfter(0, internal.jobs.translateBannerImage.translateBannerImage, {
+    return {
+      created: true,
       bannerId,
-    });
-
-    return bannerId;
+      message: 'Banner image created successfully ',
+      createdFor: allowedCountries,
+      skippedCountries: Array.from(conflictingCountries),
+    };
   },
 });
 
@@ -57,9 +78,7 @@ export const getBannerImages = query({
     let allBannerImages = all;
 
     if (args.country) {
-      allBannerImages = allBannerImages.filter((banner) =>
-        banner.country.includes(args.country as Country),
-      );
+      allBannerImages = allBannerImages.filter((banner) => banner.country.includes(args.country));
     }
 
     const lang = args.lang ?? 'en';

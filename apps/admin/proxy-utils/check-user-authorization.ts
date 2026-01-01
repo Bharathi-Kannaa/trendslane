@@ -1,5 +1,5 @@
 import { setLocaleCookies } from '@/app/actions/set-locale-cookies';
-import { Country, Role, UserRole } from '@workspace/types';
+import { Country, Language, Role, UserRole } from '@workspace/types';
 
 export const authorized = (role: UserRole, country: Country, userAccessCountry?: Country[]) => {
   if (role === 'admin' && userAccessCountry?.includes(country)) return true;
@@ -12,7 +12,7 @@ export async function navigateIfAllowed(
   country: Country,
   userAccessCountry: Country[] | undefined,
   path: string,
-  lang = 'en',
+  lang: Language,
 ) {
   if (!role || !country) return;
 

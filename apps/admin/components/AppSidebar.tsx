@@ -51,6 +51,7 @@ import { Typography } from '@workspace/ui/components/typography';
 import { setLocaleCookies } from '@/app/actions/set-locale-cookies';
 import { RoleSkeleton } from './skeletons/RoleSkeleton';
 import ListSkeleton from './skeletons/ListSkeleton';
+import { mapLanguageToCountry } from '@workspace/types';
 
 export const navLinks = [
   {
@@ -101,7 +102,7 @@ export const navLinks = [
 ];
 
 const AppSidebar = () => {
-  const { role, userCountry } = useClerkDetails();
+  const { role, userCountry, fallbackName, fullName, imageUrl, signOut } = useClerkDetails();
 
   return (
     <Sidebar collapsible='icon'>
@@ -115,7 +116,7 @@ const AppSidebar = () => {
                   width={100}
                   height={20}
                   alt='Trendslane'
-                  className='dark:invert'
+                  className='h-5 dark:invert'
                 />
                 {role ? (
                   <p className='text-xs text-muted-foreground capitalize'>{role}</p>
@@ -192,7 +193,8 @@ const AppSidebar = () => {
                               href={'#'}
                               className='w-full'
                               onClick={async () => {
-                                await setLocaleCookies(country, 'en');
+                                console.log(mapLanguageToCountry(country), 'Mapped Lang');
+                                await setLocaleCookies(country, mapLanguageToCountry(country));
                               }}
                             >
                               <Typography>{country}</Typography>
@@ -251,18 +253,16 @@ const AppSidebar = () => {
               <DropdownMenuTrigger asChild>
                 <SidebarMenuButton>
                   <Avatar className='size-4'>
-                    <AvatarImage
-                      src={'https://images.pexels.com/photos/35130806/pexels-photo-35130806.jpeg'}
-                    />
-                    <AvatarFallback>RG</AvatarFallback>
+                    <AvatarImage src={imageUrl} />
+                    <AvatarFallback>{fallbackName}</AvatarFallback>
                   </Avatar>
-                  Rachel Green <ChevronUp className='ml-auto' />
+                  {fullName} <ChevronUp className='ml-auto' />
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent align='end'>
                 <DropdownMenuItem>Account</DropdownMenuItem>
                 <DropdownMenuItem>Settings</DropdownMenuItem>
-                <DropdownMenuItem>Sign out</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => signOut()}>Sign out</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </SidebarMenuItem>

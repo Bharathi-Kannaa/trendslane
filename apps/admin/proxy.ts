@@ -3,8 +3,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { handleRoot } from './proxy-utils/handle-root';
 import { handleAutoPrefix } from './proxy-utils/handle-auto-prefix';
 import { isValidCountry, isValidLanguage } from './proxy-utils/region-validators';
-import { Country, CustomJWTSessionClaims, Role } from '@workspace/types';
+import { Country, CustomJWTSessionClaims, Language, Role } from '@workspace/types';
 import { authorized } from './proxy-utils/check-user-authorization';
+import { setCookie } from './app/actions/cookie-helper';
 
 const isPublicRoute = createRouteMatcher([
   '/:country/:lang/sign-in(.*)',
@@ -27,6 +28,32 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
 
   if (!isValidCountry(country) || !isValidLanguage(lang)) {
     return handleRoot(req);
+  }
+
+  // This below code runs to prevent Enforce cookie override when mismatch exists -> /in/en but cookie is us/es
+  const cookieCountry = req.cookies.get('admin.country')?.value;
+  const cookieLang = req.cookies.get('admin.lang')?.value;
+
+  // 1️⃣ If URL is valid → sync cookies and STOP
+  if (isValidCountry(country) && isValidLanguage(lang)) {
+    // Only set if different (prevents useless writes)
+    if (cookieCountry !== country) {
+      setCookie('admin.country', country as Country);
+    }
+    if (cookieLang !== lang) {
+      setCookie('admin.lang', lang as Language);
+    }
+  }
+
+  // Redirect only if URL invalid and cookies exist
+  if (!isValidCountry(country) || !isValidLanguage(lang)) {
+    if (cookieCountry && cookieLang) {
+      const url = req.nextUrl.clone();
+      url.pathname = `/${cookieCountry}/${cookieLang}${
+        segments.slice(2).length ? '/' + segments.slice(2).join('/') : ''
+      }`;
+      return NextResponse.redirect(url);
+    }
   }
 
   if (isPublicRoute(req)) {

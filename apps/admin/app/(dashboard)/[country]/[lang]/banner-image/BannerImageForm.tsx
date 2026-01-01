@@ -1,88 +1,436 @@
 'use client';
-import {
-  bannerImageFormSchema,
-  CreateBannerImageInput,
-} from '@/utils/form-validations/banner-image';
+
+import { useClerkDetails } from '@/hooks/use-clerk-details';
+import { bannerImageFormSchema } from '@/utils/form-validations/banner-image';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { api } from '@workspace/backend/convex/_generated/api';
-import { Audience } from '@workspace/types';
+import { allowedCountries, AUDIENCE_ORDER, Country, Role } from '@workspace/types';
 import { Button } from '@workspace/ui/components/button';
-import { Checkbox } from '@workspace/ui/components/checkbox';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@workspace/ui/components/card';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@workspace/ui/components/command';
+import { Field, FieldError, FieldGroup, FieldLabel } from '@workspace/ui/components/field';
 import { Input } from '@workspace/ui/components/input';
+import { Popover, PopoverContent, PopoverTrigger } from '@workspace/ui/components/popover';
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from '@workspace/ui/components/select';
+import { Typography } from '@workspace/ui/components/typography';
+import { cn } from '@workspace/ui/lib/utils';
 import { useMutation } from 'convex/react';
-import React from 'react';
-import { useForm } from 'react-hook-form';
-const audiences = ['women', 'men', 'teen', 'kids'] as const;
-const countries = ['in', 'fr', 'ae'] as const;
-const BannerImageForm = () => {
-  const createBanner = useMutation(api.functions.bannerImage.createBannerImage);
+import { ArrowLeft, Check, ChevronsUpDown } from 'lucide-react';
+import Image from 'next/image';
+import { useRouter } from 'next/navigation';
+import React, { useState, useTransition } from 'react';
+import { Controller, useForm } from 'react-hook-form';
+import { toast } from 'sonner';
+import z from 'zod';
 
-  const form = useForm<CreateBannerImageInput>({
+const BannerImageForm = ({ mode }: { mode: 'create' | 'edit' }) => {
+  const router = useRouter();
+  const { role, userCountry } = useClerkDetails();
+  const [bannerImageFile, setBannerImageFile] = useState<string | null>(null);
+  const [imageUploading, setImageUploading] = useState(false);
+  const [fileInputKey, setFileInputKey] = useState(0);
+  const [isPending, startTransition] = useTransition();
+
+  const form = useForm<z.infer<typeof bannerImageFormSchema>>({
     resolver: zodResolver(bannerImageFormSchema),
     defaultValues: {
-      country: [],
+      country: mode === 'create' ? undefined : ['in'],
+      audience: undefined,
+      title: '',
+      imageUrl: '',
     },
   });
 
-  async function onSubmit(values: CreateBannerImageInput) {
-    await createBanner(values);
-    form.reset();
-  }
+  const countriesAllowedToChoose = role === Role.SuperAdmin ? allowedCountries : userCountry;
+  const createBannerImage = useMutation(api.functions.bannerImage.createBannerImage);
+
+  const onSubmit = (data: z.infer<typeof bannerImageFormSchema>) => {
+    startTransition(async () => {
+      try {
+        if (mode === 'create') {
+          const result = await createBannerImage(data);
+          const skippedCountries = result?.skippedCountries || [];
+          const createdFor = result?.createdFor || [];
+          const message = result?.message;
+          if (skippedCountries.length) {
+            toast.warning(
+              `Banner already exists for selected audience - ${skippedCountries.join(', ')}`,
+            );
+          }
+
+          if (createdFor.length) {
+            toast.success(`${message} for: ${createdFor.join(', ')}`);
+          }
+
+          form.reset();
+          setBannerImageFile(null);
+          setFileInputKey((k) => k + 1);
+          router.push('/banner-image');
+        } else {
+          // Implement edit functionality here
+        }
+      } catch (error: unknown) {
+        toast.error(
+          `Failed to create banner image: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+        return;
+      }
+    });
+  };
 
   return (
-    <div>
-      <form onSubmit={form.handleSubmit(onSubmit)} className='space-y-4 max-w-lg'>
-        {/* Title */}
-        <Input placeholder='Title (English)' {...form.register('title')} />
-
-        {/* Image URL */}
-        <Input placeholder='Image URL' {...form.register('imageUrl')} />
-
-        {/* Audience */}
-        <Select onValueChange={(v) => form.setValue('audience', v as Audience)}>
-          <SelectTrigger>
-            <SelectValue placeholder='Select audience' />
-          </SelectTrigger>
-          <SelectContent>
-            {audiences.map((a) => (
-              <SelectItem key={a} value={a}>
-                {a}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        {/* Countries */}
-        <div className='space-y-2'>
-          <p className='text-sm font-medium'>Countries</p>
-          {countries.map((c) => (
-            <label key={c} className='flex items-center gap-2'>
-              <Checkbox
-                checked={form.watch('country').includes(c)}
-                onCheckedChange={(checked) => {
-                  const current = form.getValues('country');
-                  form.setValue(
-                    'country',
-                    checked ? [...current, c] : current.filter((x) => x !== c),
-                  );
-                }}
-              />
-              {c.toUpperCase()}
-            </label>
-          ))}
+    <>
+      <div className='w-full  flex flex-col justify-between lg:flex-row gap-4 '>
+        <div className='flex items-center gap-4'>
+          <Button className='p-4' variant='outline' onClick={() => router.push('/banner-image')}>
+            <ArrowLeft />
+          </Button>
+          <Typography normalCase className='text-sm lg:text-2xl'>
+            {mode === 'create' ? 'Add Banner Image' : 'Edit Banner Image'}
+          </Typography>
         </div>
+      </div>
+      <form
+        id='banner-image'
+        className='mt-4'
+        onSubmit={form.handleSubmit((data) => onSubmit(data))}
+      >
+        <Card>
+          <CardHeader>
+            <CardTitle>Banner Image Details</CardTitle>
+            <CardDescription>
+              This is the entry page users see when they first visit the app.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className='w-full'>
+            <FieldGroup>
+              <div className='flex flex-col lg:grid lg:grid-cols-2 gap-6'>
+                <div className='grid gap-2'>
+                  <Controller
+                    name='country'
+                    control={form.control}
+                    render={({ field, fieldState }) => {
+                      const selected = field.value || [];
 
-        <Button type='submit'>Create Banner</Button>
+                      return (
+                        <Field data-invalid={fieldState.invalid}>
+                          <FieldLabel>Country</FieldLabel>
+
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant='outline'
+                                role='combobox'
+                                className={cn(
+                                  'w-full justify-between',
+                                  fieldState.invalid && 'border-destructive',
+                                )}
+                              >
+                                {selected.length ? (
+                                  countriesAllowedToChoose
+                                    ?.filter((c) => selected.includes(c))
+                                    .map((c) => c)
+                                    .join(', ')
+                                ) : (
+                                  <Typography className='opacity-50 normal-case font-normal'>
+                                    Select countries
+                                  </Typography>
+                                )}
+                                <ChevronsUpDown className='ml-2 h-4 w-4 opacity-50' />
+                              </Button>
+                            </PopoverTrigger>
+
+                            <PopoverContent className='w-full p-0'>
+                              <Command>
+                                <CommandInput placeholder='Search country...' />
+                                <CommandEmpty>No country found.</CommandEmpty>
+                                <CommandList>
+                                  <CommandGroup>
+                                    {countriesAllowedToChoose?.map((c) => {
+                                      const isSelected = selected.includes(c);
+
+                                      return (
+                                        <CommandItem
+                                          key={c}
+                                          onSelect={() => {
+                                            if (isSelected) {
+                                              field.onChange(
+                                                selected.filter((v: Country) => v !== c),
+                                              );
+                                            } else {
+                                              field.onChange([...selected, c]);
+                                            }
+                                          }}
+                                        >
+                                          <Check
+                                            className={cn(
+                                              'mr-2 h-4 w-4',
+                                              isSelected ? 'opacity-100' : 'opacity-0',
+                                            )}
+                                          />
+                                          {c}
+                                        </CommandItem>
+                                      );
+                                    })}
+                                  </CommandGroup>
+                                </CommandList>
+                              </Command>
+                            </PopoverContent>
+                          </Popover>
+
+                          {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+                        </Field>
+                      );
+                    }}
+                  />
+                </div>
+                <div className='grid gap-2'>
+                  <Controller
+                    control={form.control}
+                    name='audience'
+                    render={({ field, fieldState }) => (
+                      <Field data-invalid={fieldState.invalid}>
+                        <FieldLabel htmlFor={field.name}>Audience</FieldLabel>
+                        <Select
+                          name={field.name}
+                          value={field.value ?? ''}
+                          onValueChange={field.onChange}
+                        >
+                          <SelectTrigger className='w-full' aria-invalid={fieldState.invalid}>
+                            <SelectValue placeholder='Select a audience' />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectGroup>
+                              <SelectLabel>Audience</SelectLabel>
+                              {AUDIENCE_ORDER.map((item) => (
+                                <SelectItem key={item} value={item}>
+                                  {item}
+                                </SelectItem>
+                              ))}
+                            </SelectGroup>
+                          </SelectContent>
+                        </Select>
+                        {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+                      </Field>
+                    )}
+                  />
+                </div>
+              </div>
+              <Controller
+                control={form.control}
+                name='title'
+                render={({ field, fieldState }) => (
+                  <Field data-invalid={fieldState.invalid}>
+                    <FieldLabel htmlFor={field.name}>Title</FieldLabel>
+                    <Input
+                      {...field}
+                      max={80}
+                      placeholder='Enter banner title'
+                      aria-invalid={fieldState.invalid}
+                    />
+                    {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+                  </Field>
+                )}
+              />
+              <Controller
+                control={form.control}
+                name='imageUrl'
+                render={({ field, fieldState }) => (
+                  <Field data-invalid={fieldState.invalid}>
+                    <FieldLabel htmlFor={field.name}>Upload Image</FieldLabel>
+                    <Input
+                      key={fileInputKey}
+                      type='file'
+                      accept='image/*'
+                      id={field.name}
+                      aria-invalid={fieldState.invalid}
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return '';
+                        try {
+                          toast.info('Uploading image...');
+                          setImageUploading(true);
+                          const formData = new FormData();
+                          formData.append('file', file);
+                          formData.append('upload_preset', 'trendslane');
+
+                          const response = await fetch(
+                            `https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUDNAME}/image/upload`,
+                            {
+                              method: 'POST',
+                              body: formData,
+                            },
+                          );
+
+                          const data = await response.json();
+
+                          if (data.secure_url) {
+                            field.onChange(data.secure_url);
+                            setBannerImageFile(data.secure_url);
+                            setImageUploading(false);
+                            toast.success('Image uploaded successfully!');
+                          }
+                        } catch {
+                          toast.error('Failed to upload image. Please try again.');
+                          setImageUploading(false);
+                        }
+                      }}
+                    />
+                    {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+
+                    {bannerImageFile && (
+                      <Image
+                        src={bannerImageFile}
+                        width={200}
+                        height={200}
+                        alt={field.name}
+                        className='object-cover'
+                      />
+                    )}
+                  </Field>
+                )}
+              />
+            </FieldGroup>
+          </CardContent>
+          <CardFooter>
+            <Field orientation='horizontal'>
+              <Button
+                type='button'
+                variant='outline'
+                onClick={() => {
+                  form.reset();
+                  setBannerImageFile(null);
+                  setFileInputKey((k) => k + 1);
+                }}
+              >
+                Reset
+              </Button>
+              <Button
+                type='submit'
+                form='banner-image'
+                disabled={imageUploading || isPending}
+                className='disabled:opacity-50 disabled:cursor-not-allowed'
+              >
+                {mode === 'create' ? 'Create Banner' : 'Update Banner'}
+              </Button>
+            </Field>
+          </CardFooter>
+        </Card>
       </form>
-    </div>
+    </>
   );
 };
 
 export default BannerImageForm;
+
+// import {
+//   bannerImageFormSchema,
+//   CreateBannerImageInput,
+// } from '@/utils/form-validations/banner-image';
+// import { zodResolver } from '@hookform/resolvers/zod';
+// import { api } from '@workspace/backend/convex/_generated/api';
+// import { Audience } from '@workspace/types';
+// import { Button } from '@workspace/ui/components/button';
+// import { Checkbox } from '@workspace/ui/components/checkbox';
+// import { Input } from '@workspace/ui/components/input';
+// import {
+//   Select,
+//   SelectContent,
+//   SelectItem,
+//   SelectTrigger,
+//   SelectValue,
+// } from '@workspace/ui/components/select';
+// import { useMutation } from 'convex/react';
+// import React from 'react';
+// import { useForm } from 'react-hook-form';
+// const audiences = ['women', 'men', 'teen', 'kids'] as const;
+// const countries = ['in', 'fr', 'ae'] as const;
+// const BannerImageForm = () => {
+//   const createBanner = useMutation(api.functions.bannerImage.createBannerImage);
+
+//   const form = useForm<CreateBannerImageInput>({
+//     resolver: zodResolver(bannerImageFormSchema),
+//     defaultValues: {
+//       country: [],
+//     },
+//   });
+
+//   async function onSubmit(values: CreateBannerImageInput) {
+//     await createBanner(values);
+//     form.reset();
+//   }
+
+//   return (
+//     <div>
+//       <form onSubmit={form.handleSubmit(onSubmit)} className='space-y-4 max-w-lg'>
+//         {/* Title */}
+//         <Input placeholder='Title (English)' {...form.register('title')} />
+
+//         {/* Image URL */}
+//         <Input placeholder='Image URL' {...form.register('imageUrl')} />
+
+//         {/* Audience */}
+//         <Select onValueChange={(v) => form.setValue('audience', v as Audience)}>
+//           <SelectTrigger>
+//             <SelectValue placeholder='Select audience' />
+//           </SelectTrigger>
+//           <SelectContent>
+//             {audiences.map((a) => (
+//               <SelectItem key={a} value={a}>
+//                 {a}
+//               </SelectItem>
+//             ))}
+//           </SelectContent>
+//         </Select>
+
+//         {/* Countries */}
+//         <div className='space-y-2'>
+//           <p className='text-sm font-medium'>Countries</p>
+//           {countries.map((c) => (
+//             <label key={c} className='flex items-center gap-2'>
+//               <Checkbox
+//                 checked={form.watch('country').includes(c)}
+//                 onCheckedChange={(checked) => {
+//                   const current = form.getValues('country');
+//                   form.setValue(
+//                     'country',
+//                     checked ? [...current, c] : current.filter((x) => x !== c),
+//                   );
+//                 }}
+//               />
+//               {c.toUpperCase()}
+//             </label>
+//           ))}
+//         </div>
+
+//         <Button type='submit'>Create Banner</Button>
+//       </form>
+//     </div>
+//   );
+// };
+
+// export default BannerImageForm;

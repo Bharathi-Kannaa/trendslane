@@ -1,6 +1,7 @@
 import React, { Suspense } from 'react';
-import BannerImageFetch from './BannerImageFetch';
-import { Country, Language } from '@workspace/types';
+import BannerImageFetch from './banner-image-fetch';
+import { Country, getFullCountryName, Language } from '@workspace/types';
+import TableSkeleton from '@/components/skeletons/TableSkeleton';
 
 const BannerImage = async ({
   params,
@@ -10,7 +11,10 @@ const BannerImage = async ({
   const { country, lang } = await params;
   return (
     <main>
-      <Suspense fallback={<div className='h-screen'> Loading.... </div>}>
+      <div className='mb-8 px-4 py-2 rounded-md'>
+        <h1 className='font-semibold'>{getFullCountryName(country)} - Banner Image</h1>
+      </div>
+      <Suspense fallback={<TableSkeleton />}>
         <BannerImageFetch country={country} lang={lang} />
       </Suspense>
     </main>
