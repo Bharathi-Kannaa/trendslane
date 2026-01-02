@@ -10,6 +10,9 @@ import { columns } from '@/components/tables/banner-image-table/columns';
 
 export type BannerImageArray = FunctionReturnType<typeof api.functions.bannerImage.getBannerImages>;
 export type BannerImageData = BannerImageArray[number];
+export type BannerImageEditData = FunctionReturnType<
+  typeof api.functions.bannerImage.getBannerTranslationById
+>;
 
 export type BannerImage = BannerImageArray[number];
 export function BannerImageClient({
@@ -22,7 +25,7 @@ export function BannerImageClient({
   bannerImageData: BannerImageArray;
 }) {
   const bannerImage = useQuery(api.functions.bannerImage.getBannerImages, { country, lang });
-
+  console.log(bannerImage, ' Banner Image');
   const data = bannerImage ?? bannerImageData;
 
   if (!data) return notFound();

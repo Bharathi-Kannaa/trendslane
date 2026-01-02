@@ -4,7 +4,14 @@ import { useClerkDetails } from '@/hooks/use-clerk-details';
 import { bannerImageFormSchema } from '@/utils/form-validations/banner-image';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { api } from '@workspace/backend/convex/_generated/api';
-import { allowedCountries, AUDIENCE_ORDER, Country, Role } from '@workspace/types';
+import {
+  allowedCountries,
+  Audience,
+  AUDIENCE_ORDER,
+  Country,
+  Language,
+  Role,
+} from '@workspace/types';
 import { Button } from '@workspace/ui/components/button';
 import {
   Card,
@@ -44,27 +51,38 @@ import React, { useState, useTransition } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import z from 'zod';
+import { BannerImageEditData } from './banner-image-client';
+import { Id } from '@workspace/backend/convex/_generated/dataModel';
 
-const BannerImageForm = ({ mode }: { mode: 'create' | 'edit' }) => {
+interface BannerImageFormProps {
+  mode: 'create' | 'edit';
+  lang: Language;
+  initialData?: BannerImageEditData;
+}
+
+const BannerImageForm = ({ mode, lang, initialData }: BannerImageFormProps) => {
   const router = useRouter();
   const { role, userCountry } = useClerkDetails();
   const [bannerImageFile, setBannerImageFile] = useState<string | null>(null);
   const [imageUploading, setImageUploading] = useState(false);
   const [fileInputKey, setFileInputKey] = useState(0);
   const [isPending, startTransition] = useTransition();
+  const createBannerImage = useMutation(api.functions.bannerImage.createBannerImage);
+  console.log(initialData);
+  const bannerId = initialData?._id as Id<'bannerImages'>;
+  const updateBannerImage = useMutation(api.functions.bannerImage.updateBannerTranslationById);
 
   const form = useForm<z.infer<typeof bannerImageFormSchema>>({
     resolver: zodResolver(bannerImageFormSchema),
     defaultValues: {
-      country: mode === 'create' ? undefined : ['in'],
-      audience: undefined,
-      title: '',
-      imageUrl: '',
+      country: initialData?.country ?? undefined,
+      audience: (initialData?.audience as Audience) ?? undefined,
+      title: initialData?.title ?? '',
+      imageUrl: initialData?.imageUrl ?? '',
     },
   });
 
   const countriesAllowedToChoose = role === Role.SuperAdmin ? allowedCountries : userCountry;
-  const createBannerImage = useMutation(api.functions.bannerImage.createBannerImage);
 
   const onSubmit = (data: z.infer<typeof bannerImageFormSchema>) => {
     startTransition(async () => {
@@ -89,7 +107,18 @@ const BannerImageForm = ({ mode }: { mode: 'create' | 'edit' }) => {
           setFileInputKey((k) => k + 1);
           router.push('/banner-image');
         } else {
-          // Implement edit functionality here
+          await updateBannerImage({
+            bannerId,
+            lang,
+            title: data.title,
+            altText: data.title,
+            audience: data.audience,
+          });
+          toast.success('Banner updated successfully');
+          form.reset();
+          setBannerImageFile(null);
+          setFileInputKey((k) => k + 1);
+          router.push('/banner-image');
         }
       } catch (error: unknown) {
         toast.error(
@@ -302,12 +331,12 @@ const BannerImageForm = ({ mode }: { mode: 'create' | 'edit' }) => {
                     />
                     {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
 
-                    {bannerImageFile && (
+                    {(bannerImageFile || initialData?.imageUrl) && (
                       <Image
-                        src={bannerImageFile}
+                        src={bannerImageFile || initialData?.imageUrl || ''}
                         width={200}
                         height={200}
-                        alt={field.name}
+                        alt={initialData?.altText || field.name}
                         className='object-cover'
                       />
                     )}
@@ -346,91 +375,3 @@ const BannerImageForm = ({ mode }: { mode: 'create' | 'edit' }) => {
 };
 
 export default BannerImageForm;
-
-// import {
-//   bannerImageFormSchema,
-//   CreateBannerImageInput,
-// } from '@/utils/form-validations/banner-image';
-// import { zodResolver } from '@hookform/resolvers/zod';
-// import { api } from '@workspace/backend/convex/_generated/api';
-// import { Audience } from '@workspace/types';
-// import { Button } from '@workspace/ui/components/button';
-// import { Checkbox } from '@workspace/ui/components/checkbox';
-// import { Input } from '@workspace/ui/components/input';
-// import {
-//   Select,
-//   SelectContent,
-//   SelectItem,
-//   SelectTrigger,
-//   SelectValue,
-// } from '@workspace/ui/components/select';
-// import { useMutation } from 'convex/react';
-// import React from 'react';
-// import { useForm } from 'react-hook-form';
-// const audiences = ['women', 'men', 'teen', 'kids'] as const;
-// const countries = ['in', 'fr', 'ae'] as const;
-// const BannerImageForm = () => {
-//   const createBanner = useMutation(api.functions.bannerImage.createBannerImage);
-
-//   const form = useForm<CreateBannerImageInput>({
-//     resolver: zodResolver(bannerImageFormSchema),
-//     defaultValues: {
-//       country: [],
-//     },
-//   });
-
-//   async function onSubmit(values: CreateBannerImageInput) {
-//     await createBanner(values);
-//     form.reset();
-//   }
-
-//   return (
-//     <div>
-//       <form onSubmit={form.handleSubmit(onSubmit)} className='space-y-4 max-w-lg'>
-//         {/* Title */}
-//         <Input placeholder='Title (English)' {...form.register('title')} />
-
-//         {/* Image URL */}
-//         <Input placeholder='Image URL' {...form.register('imageUrl')} />
-
-//         {/* Audience */}
-//         <Select onValueChange={(v) => form.setValue('audience', v as Audience)}>
-//           <SelectTrigger>
-//             <SelectValue placeholder='Select audience' />
-//           </SelectTrigger>
-//           <SelectContent>
-//             {audiences.map((a) => (
-//               <SelectItem key={a} value={a}>
-//                 {a}
-//               </SelectItem>
-//             ))}
-//           </SelectContent>
-//         </Select>
-
-//         {/* Countries */}
-//         <div className='space-y-2'>
-//           <p className='text-sm font-medium'>Countries</p>
-//           {countries.map((c) => (
-//             <label key={c} className='flex items-center gap-2'>
-//               <Checkbox
-//                 checked={form.watch('country').includes(c)}
-//                 onCheckedChange={(checked) => {
-//                   const current = form.getValues('country');
-//                   form.setValue(
-//                     'country',
-//                     checked ? [...current, c] : current.filter((x) => x !== c),
-//                   );
-//                 }}
-//               />
-//               {c.toUpperCase()}
-//             </label>
-//           ))}
-//         </div>
-
-//         <Button type='submit'>Create Banner</Button>
-//       </form>
-//     </div>
-//   );
-// };
-
-// export default BannerImageForm;

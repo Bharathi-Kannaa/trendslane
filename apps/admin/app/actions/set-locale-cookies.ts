@@ -5,7 +5,6 @@ import { getCookie, setCookie } from './cookie-helper';
 import { Country, Language } from '@workspace/types';
 
 export async function setLocaleCookies(country: Country, lang: Language, extendPath?: string) {
-  console.log(country, lang, 'Checker');
   setCookie('admin.country', country);
   setCookie('admin.lang', lang);
 

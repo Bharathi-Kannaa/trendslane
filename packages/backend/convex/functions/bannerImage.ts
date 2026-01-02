@@ -4,6 +4,7 @@ import { AudienceConvex, CountryConvex, LanguageConvex } from '../schema';
 import { AUDIENCE_ORDER, Country } from '@workspace/types';
 import { internal } from '../_generated/api';
 
+// Create Banner Image
 export const createBannerImage = mutation({
   args: {
     country: v.array(CountryConvex),
@@ -70,10 +71,71 @@ export const createBannerImage = mutation({
   },
 });
 
+export const getBannerById = query({
+  args: { bannerId: v.id('bannerImages') },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.bannerId);
+  },
+});
+
+export const getBannerTranslationById = query({
+  args: {
+    bannerId: v.id('bannerImages'),
+    lang: LanguageConvex,
+  },
+  handler: async (ctx, { bannerId, lang }) => {
+    const banner = await ctx.db.get(bannerId);
+    if (!banner) return null;
+
+    const t = banner.translations?.[lang];
+
+    return {
+      _id: banner._id,
+      country: banner.country,
+      audience: banner.audience,
+      imageUrl: banner.imageUrl,
+      sortIndex: banner.sortIndex,
+      title: t?.title ?? banner.title,
+      altText: t?.altText ?? banner.altText,
+    };
+  },
+});
+
+export const updateBannerTranslationById = mutation({
+  args: {
+    bannerId: v.id('bannerImages'),
+    lang: LanguageConvex,
+    title: v.string(),
+    altText: v.optional(v.string()),
+    audience: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const banner = await ctx.db.get(args.bannerId);
+    if (!banner) throw new Error('Not found');
+
+    await ctx.db.patch(args.bannerId, {
+      translations: {
+        ...banner.translations,
+        [args.lang]: {
+          title: args.title,
+          altText: args.altText ?? args.title,
+          audience: args.audience,
+        },
+      },
+      updatedAt: Date.now(),
+    });
+  },
+});
+
+// export const updateById = query({})
+
+// Get Banner Images
 export const getBannerImages = query({
   args: { country: CountryConvex, lang: LanguageConvex },
   handler: async (ctx, args) => {
-    const all = await ctx.db.query('bannerImages').collect();
+    const all = (await ctx.db.query('bannerImages').collect()).sort(
+      (a, b) => a.sortIndex! - b.sortIndex!,
+    );
 
     let allBannerImages = all;
 

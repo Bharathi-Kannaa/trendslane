@@ -193,7 +193,6 @@ const AppSidebar = () => {
                               href={'#'}
                               className='w-full'
                               onClick={async () => {
-                                console.log(mapLanguageToCountry(country), 'Mapped Lang');
                                 await setLocaleCookies(country, mapLanguageToCountry(country));
                               }}
                             >

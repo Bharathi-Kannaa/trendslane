@@ -23,7 +23,6 @@ export function getFullCountryName(country?: Country): string {
 }
 
 export const mapLanguageToCountry = (country: Country): Language => {
-  console.log(country, 'Mapping country to lang');
   if (!country) return 'en';
 
   switch (country) {
