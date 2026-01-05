@@ -9,6 +9,7 @@ export const allowedLanguages: readonly Language[] = languages;
 
 export const AUDIENCE_ORDER = ['women', 'men', 'teen', 'kids'] as const;
 export type Audience = (typeof AUDIENCE_ORDER)[number];
+export const allowedAudience: readonly Audience[] = AUDIENCE_ORDER;
 
 const COUNTRY_NAME_MAP: Record<Country, string> = {
   in: 'India',
@@ -36,3 +37,7 @@ export const mapLanguageToCountry = (country: Country): Language => {
       return 'en';
   }
 };
+
+export const RTL_LANGS = ['ar'];
+
+export const isRTL = (lang?: string) => RTL_LANGS.includes(lang || '');

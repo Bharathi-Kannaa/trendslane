@@ -1,4 +1,5 @@
 import type { NextConfig } from 'next';
+import createNextIntlPlugin from 'next-intl/plugin';
 import path from 'path';
 
 const nextConfig: NextConfig = {
@@ -21,8 +22,12 @@ const nextConfig: NextConfig = {
       {
         hostname: 'res.cloudinary.com',
       },
+      {
+        hostname: 'wallpapers.com',
+      },
     ],
   },
 };
 
-export default nextConfig;
+const withNextIntl = createNextIntlPlugin('./app/i18n/request.ts');
+export default withNextIntl(nextConfig);

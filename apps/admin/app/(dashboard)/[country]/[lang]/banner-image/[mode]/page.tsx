@@ -7,10 +7,10 @@ const page = async ({
 }: {
   params: Promise<{ country: Country; lang: Language; mode: 'create' | 'edit' }>;
 }) => {
-  const { mode } = await params;
+  const { mode, lang } = await params;
   return (
     <div className='p-1 mt-2 md:p-8'>
-      <BannerImageForm mode={mode} />
+      <BannerImageForm mode={mode} lang={lang} />
     </div>
   );
 };
