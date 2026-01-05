@@ -14,6 +14,7 @@ import type * as jobs_translateBannerImage from "../jobs/translateBannerImage.js
 import type * as jobs_updateBannerTranslations from "../jobs/updateBannerTranslations.js";
 import type * as lib_gemini_config from "../lib/gemini_config.js";
 import type * as lib_translations_banner_image_translation from "../lib/translations/banner_image_translation.js";
+import type * as middleware_authorize from "../middleware/authorize.js";
 
 import type {
   ApiFromModules,
@@ -28,6 +29,7 @@ declare const fullApi: ApiFromModules<{
   "jobs/updateBannerTranslations": typeof jobs_updateBannerTranslations;
   "lib/gemini_config": typeof lib_gemini_config;
   "lib/translations/banner_image_translation": typeof lib_translations_banner_image_translation;
+  "middleware/authorize": typeof middleware_authorize;
 }>;
 
 /**

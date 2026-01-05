@@ -1,8 +1,9 @@
 import { v } from 'convex/values';
 import { mutation, query } from '../_generated/server';
-import { AudienceConvex, CountryConvex, LanguageConvex } from '../schema';
+import { AudienceConvex, CountryConvex, CountryConvexArray, LanguageConvex } from '../schema';
 import { AUDIENCE_ORDER, Country } from '@workspace/types';
-import { internal } from '../_generated/api';
+import { authorize, authorizeCountryAccess } from '../middleware/authorize';
+// import { internal } from '../_generated/api';
 
 // Create Banner Image
 export const createBannerImage = mutation({
@@ -14,6 +15,16 @@ export const createBannerImage = mutation({
     altText: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    await authorize(ctx, ['superAdmin', 'admin']);
+    const access = await authorizeCountryAccess(ctx, args.country);
+    if (!access.ok) {
+      return {
+        updated: false,
+        reason: access.reason,
+        message: access.message,
+        skippedCountries: access.skipped,
+      };
+    }
     const now = Date.now();
 
     const existing = await ctx.db
@@ -85,6 +96,7 @@ export const getBannerTranslationById = query({
   },
   handler: async (ctx, { bannerId, lang }) => {
     const banner = await ctx.db.get(bannerId);
+
     if (!banner) return null;
 
     const t = banner.translations?.[lang];
@@ -101,19 +113,61 @@ export const getBannerTranslationById = query({
   },
 });
 
-export const updateBannerTranslationById = mutation({
+export const updateBannerById = mutation({
   args: {
     bannerId: v.id('bannerImages'),
+    country: CountryConvexArray,
+    audience: AudienceConvex,
     lang: LanguageConvex,
     title: v.string(),
+    imageUrl: v.string(),
     altText: v.optional(v.string()),
-    audience: v.string(),
   },
   handler: async (ctx, args) => {
+    await authorize(ctx, ['superAdmin', 'admin']);
+    const access = await authorizeCountryAccess(ctx, args.country);
+    if (!access.ok) {
+      return {
+        updated: false,
+        reason: access.reason,
+        message: access.message,
+        skippedCountries: access.skipped,
+      };
+    }
     const banner = await ctx.db.get(args.bannerId);
     if (!banner) throw new Error('Not found');
 
+    const existing = await ctx.db
+      .query('bannerImages')
+      .withIndex('by_audience', (q) => q.eq('audience', args.audience))
+      .collect();
+
+    const conflictingCountries = new Set<string>();
+
+    for (const b of existing) {
+      if (b._id === args.bannerId) continue;
+
+      for (const c of b.country) {
+        if (args.country.includes(c as Country)) {
+          conflictingCountries.add(c);
+        }
+      }
+    }
+
+    const allowedCountries = args.country.filter((c) => !conflictingCountries.has(c));
+
+    if (allowedCountries.length === 0) {
+      return {
+        updated: false,
+        message: `Banner already exists for audience "${args.audience}" in selected countries`,
+        skippedCountries: Array.from(conflictingCountries),
+      };
+    }
+
     await ctx.db.patch(args.bannerId, {
+      audience: args.audience,
+      country: args.country,
+      imageUrl: args.imageUrl,
       translations: {
         ...banner.translations,
         [args.lang]: {
@@ -124,10 +178,15 @@ export const updateBannerTranslationById = mutation({
       },
       updatedAt: Date.now(),
     });
+
+    return {
+      updated: true,
+      message: 'Banner image updated successfully',
+      updatedFor: allowedCountries,
+      skippedCountries: Array.from(conflictingCountries),
+    };
   },
 });
-
-// export const updateById = query({})
 
 // Get Banner Images
 export const getBannerImages = query({

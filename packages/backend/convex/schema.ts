@@ -2,6 +2,10 @@ import { defineSchema, defineTable } from 'convex/server';
 import { v } from 'convex/values';
 
 export const CountryConvex = v.union(v.literal('in'), v.literal('fr'), v.literal('ae'));
+export const CountryConvexArray = v.array(
+  v.union(v.literal('in'), v.literal('fr'), v.literal('ae')),
+);
+
 export const AudienceConvex = v.union(
   v.literal('women'),
   v.literal('men'),

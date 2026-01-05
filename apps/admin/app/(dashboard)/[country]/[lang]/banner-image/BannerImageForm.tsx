@@ -9,6 +9,7 @@ import {
   Audience,
   AUDIENCE_ORDER,
   Country,
+  getFullCountryName,
   Language,
   Role,
 } from '@workspace/types';
@@ -46,13 +47,14 @@ import { cn } from '@workspace/ui/lib/utils';
 import { useMutation } from 'convex/react';
 import { ArrowLeft, Check, ChevronsUpDown } from 'lucide-react';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import React, { useState, useTransition } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import z from 'zod';
 import { BannerImageEditData } from './banner-image-client';
 import { Id } from '@workspace/backend/convex/_generated/dataModel';
+import { isSuperAdmin } from '@/utils/userRoleCheck';
 
 interface BannerImageFormProps {
   mode: 'create' | 'edit';
@@ -62,21 +64,21 @@ interface BannerImageFormProps {
 
 const BannerImageForm = ({ mode, lang, initialData }: BannerImageFormProps) => {
   const router = useRouter();
+  const pathname = useParams<{ country: Country }>();
   const { role, userCountry } = useClerkDetails();
   const [bannerImageFile, setBannerImageFile] = useState<string | null>(null);
   const [imageUploading, setImageUploading] = useState(false);
   const [fileInputKey, setFileInputKey] = useState(0);
   const [isPending, startTransition] = useTransition();
   const createBannerImage = useMutation(api.functions.bannerImage.createBannerImage);
-  console.log(initialData);
   const bannerId = initialData?._id as Id<'bannerImages'>;
-  const updateBannerImage = useMutation(api.functions.bannerImage.updateBannerTranslationById);
+  const updateBannerImage = useMutation(api.functions.bannerImage.updateBannerById);
 
   const form = useForm<z.infer<typeof bannerImageFormSchema>>({
     resolver: zodResolver(bannerImageFormSchema),
     defaultValues: {
       country: initialData?.country ?? undefined,
-      audience: (initialData?.audience as Audience) ?? undefined,
+      audience: initialData?.audience ?? undefined,
       title: initialData?.title ?? '',
       imageUrl: initialData?.imageUrl ?? '',
     },
@@ -107,14 +109,28 @@ const BannerImageForm = ({ mode, lang, initialData }: BannerImageFormProps) => {
           setFileInputKey((k) => k + 1);
           router.push('/banner-image');
         } else {
-          await updateBannerImage({
+          const updatedResult = await updateBannerImage({
             bannerId,
             lang,
+            country: data.country as Country[],
             title: data.title,
             altText: data.title,
-            audience: data.audience,
+            imageUrl: data.imageUrl,
+            audience: data.audience as Audience,
           });
-          toast.success('Banner updated successfully');
+          const skippedCountries = updatedResult?.skippedCountries || [];
+          const updatedFor = updatedResult?.updatedFor || [];
+          const message = updatedResult?.message;
+
+          if (skippedCountries.length) {
+            toast.warning(
+              `Banner already exists for selected audience - ${skippedCountries.join(', ')}`,
+            );
+          }
+
+          if (updatedFor.length) {
+            toast.success(`${message} for: ${updatedFor.join(', ')}`);
+          }
           form.reset();
           setBannerImageFile(null);
           setFileInputKey((k) => k + 1);
@@ -159,83 +175,111 @@ const BannerImageForm = ({ mode, lang, initialData }: BannerImageFormProps) => {
             <FieldGroup>
               <div className='flex flex-col lg:grid lg:grid-cols-2 gap-6'>
                 <div className='grid gap-2'>
-                  <Controller
-                    name='country'
-                    control={form.control}
-                    render={({ field, fieldState }) => {
-                      const selected = field.value || [];
+                  {isSuperAdmin(role) ? (
+                    <Controller
+                      name='country'
+                      control={form.control}
+                      render={({ field, fieldState }) => {
+                        const selected = field.value || [];
 
-                      return (
-                        <Field data-invalid={fieldState.invalid}>
-                          <FieldLabel>Country</FieldLabel>
+                        return (
+                          <Field data-invalid={fieldState.invalid}>
+                            <FieldLabel>Country</FieldLabel>
 
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <Button
-                                variant='outline'
-                                role='combobox'
-                                className={cn(
-                                  'w-full justify-between',
-                                  fieldState.invalid && 'border-destructive',
-                                )}
-                              >
-                                {selected.length ? (
-                                  countriesAllowedToChoose
-                                    ?.filter((c) => selected.includes(c))
-                                    .map((c) => c)
-                                    .join(', ')
-                                ) : (
-                                  <Typography className='opacity-50 normal-case font-normal'>
-                                    Select countries
-                                  </Typography>
-                                )}
-                                <ChevronsUpDown className='ml-2 h-4 w-4 opacity-50' />
-                              </Button>
-                            </PopoverTrigger>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <Button
+                                  variant='outline'
+                                  role='combobox'
+                                  className={cn(
+                                    'w-full justify-between',
+                                    fieldState.invalid && 'border-destructive',
+                                  )}
+                                >
+                                  {selected.length ? (
+                                    countriesAllowedToChoose
+                                      ?.filter((c) => selected.includes(c))
+                                      .map((c) => c)
+                                      .join(', ')
+                                  ) : (
+                                    <Typography className='opacity-50 normal-case font-normal'>
+                                      Select countries
+                                    </Typography>
+                                  )}
+                                  <ChevronsUpDown className='ml-2 h-4 w-4 opacity-50' />
+                                </Button>
+                              </PopoverTrigger>
 
-                            <PopoverContent className='w-full p-0'>
-                              <Command>
-                                <CommandInput placeholder='Search country...' />
-                                <CommandEmpty>No country found.</CommandEmpty>
-                                <CommandList>
-                                  <CommandGroup>
-                                    {countriesAllowedToChoose?.map((c) => {
-                                      const isSelected = selected.includes(c);
+                              <PopoverContent className='w-full p-0'>
+                                <Command>
+                                  <CommandInput placeholder='Search country...' />
+                                  <CommandEmpty>No country found.</CommandEmpty>
+                                  <CommandList>
+                                    <CommandGroup>
+                                      {countriesAllowedToChoose?.map((c) => {
+                                        const isSelected = selected.includes(c);
 
-                                      return (
-                                        <CommandItem
-                                          key={c}
-                                          onSelect={() => {
-                                            if (isSelected) {
-                                              field.onChange(
-                                                selected.filter((v: Country) => v !== c),
-                                              );
-                                            } else {
-                                              field.onChange([...selected, c]);
-                                            }
-                                          }}
-                                        >
-                                          <Check
-                                            className={cn(
-                                              'mr-2 h-4 w-4',
-                                              isSelected ? 'opacity-100' : 'opacity-0',
-                                            )}
-                                          />
-                                          {c}
-                                        </CommandItem>
-                                      );
-                                    })}
-                                  </CommandGroup>
-                                </CommandList>
-                              </Command>
-                            </PopoverContent>
-                          </Popover>
+                                        return (
+                                          <CommandItem
+                                            key={c}
+                                            onSelect={() => {
+                                              if (isSelected) {
+                                                field.onChange(
+                                                  selected.filter((v: Country) => v !== c),
+                                                );
+                                              } else {
+                                                field.onChange([...selected, c]);
+                                              }
+                                            }}
+                                          >
+                                            <Check
+                                              className={cn(
+                                                'mr-2 h-4 w-4',
+                                                isSelected ? 'opacity-100' : 'opacity-0',
+                                              )}
+                                            />
+                                            {c}
+                                          </CommandItem>
+                                        );
+                                      })}
+                                    </CommandGroup>
+                                  </CommandList>
+                                </Command>
+                              </PopoverContent>
+                            </Popover>
 
-                          {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
-                        </Field>
-                      );
-                    }}
-                  />
+                            {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+                          </Field>
+                        );
+                      }}
+                    />
+                  ) : (
+                    <div>
+                      <Controller
+                        control={form.control}
+                        name='country'
+                        render={({ field, fieldState }) => {
+                          if (!field.value) {
+                            field.onChange([pathname.country]);
+                          }
+                          return (
+                            <Field data-invalid={fieldState.invalid}>
+                              <FieldLabel htmlFor={field.name}>Country</FieldLabel>
+                              <Input
+                                disabled
+                                value={pathname.country}
+                                aria-invalid={fieldState.invalid}
+                              />
+                              {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+                            </Field>
+                          );
+                        }}
+                      />
+                      <Typography className='normal-case mt-10'>
+                        {getFullCountryName(pathname.country)}
+                      </Typography>
+                    </div>
+                  )}
                 </div>
                 <div className='grid gap-2'>
                   <Controller

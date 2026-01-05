@@ -25,7 +25,6 @@ export function BannerImageClient({
   bannerImageData: BannerImageArray;
 }) {
   const bannerImage = useQuery(api.functions.bannerImage.getBannerImages, { country, lang });
-  console.log(bannerImage, ' Banner Image');
   const data = bannerImage ?? bannerImageData;
 
   if (!data) return notFound();
